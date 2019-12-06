@@ -8,6 +8,12 @@ add_executable(trap_test
     main.cpp
 )
 
+target_include_directories(trap_test PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/../include
+)
+
 target_link_libraries(trap_test PRIVATE
     Catch2::Catch2
 )
+
+target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_20)
