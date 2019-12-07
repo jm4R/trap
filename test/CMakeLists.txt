@@ -6,6 +6,8 @@ add_subdirectory(external)
 
 add_executable(trap_test
     main.cpp
+    test_catch2.cpp
+    test_trap.cpp
 )
 
 target_include_directories(trap_test PRIVATE

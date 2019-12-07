@@ -1,36 +1,17 @@
 #define CATCH_CONFIG_RUNNER
 #include <catch2/catch.hpp>
-
 #include <trap/trap.hpp>
 
-TEST_CASE("My test 1", "My case 1")
+int main(/*int argc, char* argv[]*/)
 {
-    CHECK(false);
-    REQUIRE(false);
-};
+    const char* argv_fake[] = { "./test", "-o", "output_catch2.txt" };
+    int argc = sizeof(argv_fake) / sizeof(char*);
+    auto argv = const_cast<char**>(argv_fake);
 
-struct MyTest1 {
-    void test()
-    {
-        trap::test_case("My case 1", []{
-            trap::check(false);
-            trap::require(false);
-        });
-    }
-};
+    int catch_result = Catch::Session{}.run(argc, argv);
+    int trap_result = trap::session{}.run(argc, argv);
 
-namespace {
-const auto global_MyTest1 = ::trap::test_register<MyTest1>("MyTest1");
-}
+    assert(catch_result == trap_result);
 
-int main( int argc, char* argv[] ) {
-    // global setup...
-
-    int result = Catch::Session().run( argc, argv );
-
-    // global clean-up...
-
-    trap::run();
-
-    return result;
+    return catch_result;
 }
