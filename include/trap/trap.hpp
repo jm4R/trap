@@ -42,6 +42,11 @@ namespace internal {
         std::vector<test_entity> tests;
         test_entity* current_test_entity{ nullptr };
         test_case* current_test_case{ nullptr };
+
+        unsigned passed_tests{ 0 };
+        unsigned failed_tests{ 0 };
+        unsigned passed_assertions{ 0 };
+        unsigned failed_assertions{ 0 };
     };
 
     struct test_token {
@@ -53,25 +58,44 @@ namespace internal {
     inline test_registry global_test_registry;
 
     // TODO: implement handlers
-    inline void handle_check_passed(location loc) {}
+    inline void handle_check_passed(location loc)
+    {
+        (void)loc;
+        global_test_registry.passed_assertions++;
+    }
     inline void handle_check_failed(location loc)
     {
+        global_test_registry.failed_assertions++;
         auto failure = test_case_result::failure{ "CHECK( false )", loc };
         auto& res = global_test_registry.current_test_case->result;
         res.failures.push_back(failure);
     }
-    inline void handle_require_passed(location loc) {}
+    inline void handle_require_passed(location loc)
+    {
+        (void)loc;
+        global_test_registry.passed_assertions++;
+    }
     inline void handle_require_failed(location loc)
     {
+        global_test_registry.failed_assertions++;
         auto failure = test_case_result::failure{ "REQUIRE( false )", loc };
         auto& res = global_test_registry.current_test_case->result;
         res.failures.push_back(failure);
         throw interupt_test_case{};
     }
-    inline void handle_unexpected_exception(location loc, std::exception& ex) {}
-    inline void handle_unexpected_throw(location loc) {}
-    inline void handle_expected_exception(location loc, std::exception& ex) {}
-    inline void handle_expected_throw(location loc) {}
+    //inline void handle_unexpected_exception(location loc, std::exception& ex) {}
+    //inline void handle_unexpected_throw(location loc) {}
+    //inline void handle_expected_exception(location loc, std::exception& ex) {}
+    //inline void handle_expected_throw(location loc) {}
+
+    inline void handle_test_case_passed()
+    {
+        global_test_registry.passed_tests++;
+    }
+    inline void handle_test_case_failed()
+    {
+        global_test_registry.failed_tests++;
+    }
 } //namespace internal
 
 template <typename T>
@@ -118,7 +142,7 @@ inline void require(bool value, internal::location loc = internal::location::cur
 }
 
 class session {
-
+    //TODO: session should copy test_registry instead of copying global one
 public:
     int apply_command_line(int argc, char* argv[])
     {
@@ -155,10 +179,19 @@ public:
                     // ignore
                 }
                 t.cleanup();
+
+                if (t.result.failures.empty())
+                    handle_test_case_passed();
+                else
+                    handle_test_case_failed();
+
                 print_test_case_result(any_failed);
                 any_failed &= !t.result.failures.empty();
             }
         }
+
+        end_all();
+
         return 2;
     }
 
@@ -166,6 +199,7 @@ private:
     constexpr static auto SEPARATOR1 = "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
     constexpr static auto SEPARATOR2 = "-------------------------------------------------------------------------------\n";
     constexpr static auto SEPARATOR3 = "...............................................................................\n\n";
+    constexpr static auto SEPARATOR4 = "===============================================================================\n";
 
     std::ostream& out()
     {
@@ -180,8 +214,23 @@ private:
         out() << SEPARATOR1 << begin_msg;
     }
 
+    void end_all()
+    {
+        const auto& reg = internal::global_test_registry;
+        out() << SEPARATOR4;
+
+        if (reg.failed_assertions == 0) {
+            out() << "All tests passed (" << reg.passed_assertions << " assertions in " << reg.passed_tests << " test_case)\n";
+            return;
+        }
+
+        out() << "test cases: " << reg.failed_tests + reg.passed_tests << " | " << reg.passed_tests << " passed | " << reg.failed_tests << " failed\n";
+        out() << "assertions: " << reg.failed_assertions + reg.passed_assertions << " | " << reg.passed_assertions << " passed | " << reg.failed_assertions << " failed\n";
+    }
+
     void begin_entity(const char* name)
     {
+        (void)name;
     }
 
     void print_test_case_result(bool already_failed_cases)

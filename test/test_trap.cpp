@@ -10,6 +10,10 @@ struct MyTest1 {
     }
 };
 
+namespace {
+const auto global_MyTest1 = ::trap::test_register<MyTest1>("My test 1");
+}
+
 struct MyTest2 {
     void test()
     {
@@ -27,10 +31,6 @@ struct MyTest2 {
         });
     }
 };
-
-namespace {
-const auto global_MyTest1 = ::trap::test_register<MyTest1>("My test 1");
-}
 
 namespace {
 const auto global_MyTest2 = ::trap::test_register<MyTest2>("My test 2");
