@@ -5,6 +5,7 @@
 #include <functional>
 #include <iostream>
 #include <memory>
+#include <string>
 #include <vector>
 
 namespace trap {
@@ -15,7 +16,7 @@ namespace internal {
 
     struct test_case_result {
         struct failure {
-            const char* what;
+            std::string what;
             location loc;
         };
 
@@ -57,8 +58,7 @@ namespace internal {
 
     inline test_registry global_test_registry;
 
-    // TODO: implement handlers
-    inline void handle_check_passed(location loc)
+    inline void handle_assertion_passed(location loc)
     {
         (void)loc;
         global_test_registry.passed_assertions++;
@@ -70,11 +70,6 @@ namespace internal {
         auto& res = global_test_registry.current_test_case->result;
         res.failures.push_back(failure);
     }
-    inline void handle_require_passed(location loc)
-    {
-        (void)loc;
-        global_test_registry.passed_assertions++;
-    }
     inline void handle_require_failed(const char* what, location loc)
     {
         global_test_registry.failed_assertions++;
@@ -83,10 +78,36 @@ namespace internal {
         res.failures.push_back(failure);
         throw interupt_test_case{};
     }
-    //inline void handle_unexpected_exception(location loc, std::exception& ex) {}
-    //inline void handle_unexpected_throw(location loc) {}
-    //inline void handle_expected_exception(location loc, std::exception& ex) {}
-    //inline void handle_expected_throw(location loc) {}
+    inline void handle_check_noexcept_failed(location loc, std::exception& ex) {
+        global_test_registry.failed_assertions++;
+        auto what = std::string{ "CHECK_NOTHROW( <std::exception thrown> )\ndue to unexpected exception with message:\n  " } + ex.what();
+        auto failure = test_case_result::failure{ what, loc };
+        auto& res = global_test_registry.current_test_case->result;
+        res.failures.push_back(failure);
+    }
+    inline void handle_require_noexcept_failed(location loc, std::exception& ex) {
+        global_test_registry.failed_assertions++;
+        auto what = std::string{ "REQUIRE_NOTHROW( <std::exception thrown> )\ndue to unexpected exception with message:\n  " } + ex.what();
+        auto failure = test_case_result::failure{ what, loc };
+        auto& res = global_test_registry.current_test_case->result;
+        res.failures.push_back(failure);
+        throw interupt_test_case{};
+    }
+    inline void handle_check_nothrow_failed(location loc) {
+        global_test_registry.failed_assertions++;
+        auto what = "CHECK_NOTHROW( <non-std exception thrown> )\ndue to unexpected exception with message:\n  non-std exception";
+        auto failure = test_case_result::failure{ what, loc };
+        auto& res = global_test_registry.current_test_case->result;
+        res.failures.push_back(failure);
+    }
+    inline void handle_require_nothrow_failed(location loc) {
+        global_test_registry.failed_assertions++;
+        auto what = "REQUIRE_NOTHROW( <non-std exception thrown> )\ndue to unexpected exception with message:\n  non-std exception";
+        auto failure = test_case_result::failure{ what, loc };
+        auto& res = global_test_registry.current_test_case->result;
+        res.failures.push_back(failure);
+        throw interupt_test_case{};
+    }
 
     inline void handle_test_case_passed()
     {
@@ -123,11 +144,13 @@ inline void test_case(const char* name, raw_function fun, internal::location loc
     newCase.cleanup = [] {}; //TODO: support cleanup
 }
 
+// ####################################################################### ASSERTIONS:
+
 inline void check(bool value, internal::location loc = internal::location::current())
 {
     using namespace internal;
     if (value)
-        handle_check_passed(loc);
+        handle_assertion_passed(loc);
     else
         handle_check_failed("CHECK( false )", loc);
 }
@@ -136,7 +159,7 @@ inline void require(bool value, internal::location loc = internal::location::cur
 {
     using namespace internal;
     if (value)
-        handle_require_passed(loc);
+        handle_assertion_passed(loc);
     else
         handle_require_failed("REQUIRE( false )", loc);
 }
@@ -145,7 +168,7 @@ inline void check_false(bool value, internal::location loc = internal::location:
 {
     using namespace internal;
     if (!value)
-        handle_check_passed(loc);
+        handle_assertion_passed(loc);
     else
         handle_check_failed("CHECK_FALSE( true )", loc);
 }
@@ -154,10 +177,38 @@ inline void require_false(bool value, internal::location loc = internal::locatio
 {
     using namespace internal;
     if (!value)
-        handle_require_passed(loc);
+        handle_assertion_passed(loc);
     else
         handle_require_failed("REQUIRE_FALSE( true )", loc);
 }
+
+inline void check_nothrow(std::function<void()>&& fun, internal::location loc = internal::location::current())
+{
+    using namespace internal;
+    try {
+        fun();
+        handle_assertion_passed(loc);
+    } catch (std::exception& ex) {
+        handle_check_noexcept_failed(loc, ex);
+    } catch (...) {
+        handle_check_nothrow_failed(loc);
+    }
+}
+
+inline void require_nothrow(std::function<void()>&& fun, internal::location loc = internal::location::current())
+{
+    using namespace internal;
+    try {
+        fun();
+        handle_assertion_passed(loc);
+    } catch (std::exception& ex) {
+        handle_require_noexcept_failed(loc, ex);
+    } catch (...) {
+        handle_require_nothrow_failed(loc);
+    }
+}
+
+// ####################################################################### SESSION:
 
 class session {
     //TODO: session should copy test_registry instead of copying global one
