@@ -63,10 +63,10 @@ namespace internal {
         (void)loc;
         global_test_registry.passed_assertions++;
     }
-    inline void handle_check_failed(location loc)
+    inline void handle_check_failed(const char* what, location loc)
     {
         global_test_registry.failed_assertions++;
-        auto failure = test_case_result::failure{ "CHECK( false )", loc };
+        auto failure = test_case_result::failure{ what, loc };
         auto& res = global_test_registry.current_test_case->result;
         res.failures.push_back(failure);
     }
@@ -75,10 +75,10 @@ namespace internal {
         (void)loc;
         global_test_registry.passed_assertions++;
     }
-    inline void handle_require_failed(location loc)
+    inline void handle_require_failed(const char* what, location loc)
     {
         global_test_registry.failed_assertions++;
-        auto failure = test_case_result::failure{ "REQUIRE( false )", loc };
+        auto failure = test_case_result::failure{ what, loc };
         auto& res = global_test_registry.current_test_case->result;
         res.failures.push_back(failure);
         throw interupt_test_case{};
@@ -129,7 +129,7 @@ inline void check(bool value, internal::location loc = internal::location::curre
     if (value)
         handle_check_passed(loc);
     else
-        handle_check_failed(loc);
+        handle_check_failed("CHECK( false )", loc);
 }
 
 inline void require(bool value, internal::location loc = internal::location::current())
@@ -138,7 +138,25 @@ inline void require(bool value, internal::location loc = internal::location::cur
     if (value)
         handle_require_passed(loc);
     else
-        handle_require_failed(loc);
+        handle_require_failed("REQUIRE( false )", loc);
+}
+
+inline void check_false(bool value, internal::location loc = internal::location::current())
+{
+    using namespace internal;
+    if (!value)
+        handle_check_passed(loc);
+    else
+        handle_check_failed("CHECK_FALSE( true )", loc);
+}
+
+inline void require_false(bool value, internal::location loc = internal::location::current())
+{
+    using namespace internal;
+    if (!value)
+        handle_require_passed(loc);
+    else
+        handle_require_failed("REQUIRE_FALSE( true )", loc);
 }
 
 class session {

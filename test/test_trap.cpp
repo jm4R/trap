@@ -3,9 +3,11 @@
 struct MyTest1 {
     void test()
     {
-        trap::test_case("My case 1", []{
+        trap::test_case("all passed", []{
             trap::check(true);
             trap::require(true);
+            trap::check_false(false);
+            trap::require_false(false);
         });
     }
 };
