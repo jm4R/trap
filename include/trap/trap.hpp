@@ -4,7 +4,6 @@
 #include <experimental/source_location>
 #include <functional>
 #include <iostream>
-#include <memory>
 #include <string>
 #include <vector>
 
@@ -51,7 +50,14 @@ namespace internal {
         unsigned failed_assertions{ 0 };
     };
 
-    struct test_token {
+    template <typename T>
+    struct test_holder {
+        test_holder() { instance.test(); }
+        test_holder(const test_holder&) = delete;
+        test_holder(test_holder&&) = delete;
+        test_holder& operator=(const test_holder&) = delete;
+        test_holder& operator=(test_holder&&) = delete;
+        T instance{};
     };
 
     struct interupt_test_case {
@@ -204,14 +210,12 @@ namespace internal {
 } //namespace internal
 
 template <typename T>
-inline internal::test_token test_register(const char* name)
+inline internal::test_holder<T> test_register(const char* name)
 {
     using namespace internal;
-    auto obj = std::make_shared<T>();
     global_test_registry.current_test_entity = &global_test_registry.tests.emplace_back();
     global_test_registry.current_test_entity->name = name;
-    global_test_registry.current_test_entity->before_all = [obj] { /*TODO*/ };
-    obj->test();
+    global_test_registry.current_test_entity->before_all = [] { /*TODO*/ };
     return {};
 }
 
