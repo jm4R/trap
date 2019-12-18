@@ -11,7 +11,8 @@ int main(/*int argc, char* argv[]*/)
     int catch_result = Catch::Session{}.run(argc, argv);
     int trap_result = trap::session{}.run(argc, argv);
 
-    assert(catch_result == trap_result);
+    (void)trap_result;
+    //assert(catch_result == trap_result);
 
     return catch_result;
 }
