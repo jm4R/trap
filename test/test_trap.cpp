@@ -12,17 +12,12 @@ struct MyTest1 {
             trap::require_nothrow([] {});
             trap::check_throws([] { throw 5; });
             trap::require_throws([] { throw 5; });
+            trap::check_throws_as<int>([] { throw 5; });
+            trap::require_throws_as<double>([] { throw 5.1; });
+            trap::check_throws_with([] { throw std::runtime_error{ "aaa" }; }, "aaa");
+            trap::require_throws_with([] { throw std::runtime_error{ "aaa" }; }, "aaa");
         });
-    }
-};
 
-namespace {
-const auto global_MyTest1 = ::trap::test_register<MyTest1>("My test 1");
-}
-
-struct MyTest2 {
-    void test()
-    {
         trap::test_case("all checks failed", [] {
             trap::check(false);
             trap::check_false(true);
@@ -32,10 +27,13 @@ struct MyTest2 {
             trap::check_throws_as<float>([] { throw 5; });
             trap::check_throws_as<int>([] { throw std::runtime_error{ "runtime error message" }; });
             trap::check_throws_as<int>([] {});
+            trap::check_throws_with([] { throw 5; }, "aaa");
+            trap::check_throws_with([] { throw std::runtime_error{ "aaa" }; }, "bbb");
+            trap::check_throws_with([] {}, "bbb");
         });
     }
 };
 
 namespace {
-const auto global_MyTest2 = ::trap::test_register<MyTest2>("My test 2");
+const auto global_MyTest1 = ::trap::test_register<MyTest1>("My test 1");
 }

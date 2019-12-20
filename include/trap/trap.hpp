@@ -4,7 +4,6 @@
 #include <experimental/source_location>
 #include <functional>
 #include <iostream>
-#include <memory>
 #include <string>
 #include <vector>
 
@@ -51,7 +50,14 @@ namespace internal {
         unsigned failed_assertions{ 0 };
     };
 
-    struct test_token {
+    template <typename T>
+    struct test_holder {
+        test_holder() { instance.test(); }
+        test_holder(const test_holder&) = delete;
+        test_holder(test_holder&&) = delete;
+        test_holder& operator=(const test_holder&) = delete;
+        test_holder& operator=(test_holder&&) = delete;
+        T instance{};
     };
 
     struct interupt_test_case {
@@ -90,11 +96,11 @@ namespace internal {
     }
     inline void handle_throws_failed(location loc, assertion_type t)
     {
-        fail("_THROWS( <no exception thrown> )\nbecause no exception was thrown where one was expected\n", loc, t);
+        fail("_THROWS( <no exception thrown> )\nbecause no exception was thrown where one was expected", loc, t);
     }
     inline void handle_throws_as_failed(location loc, assertion_type t)
     {
-        fail("_THROWS_AS( <no exception thrown> )\nbecause no exception was thrown where one was expected\n", loc, t);
+        fail("_THROWS_AS( <no exception thrown> )\nbecause no exception was thrown where one was expected", loc, t);
     }
     inline void handle_throws_as_type_failed(location loc, assertion_type t)
     {
@@ -103,6 +109,18 @@ namespace internal {
     inline void handle_throws_as_type_failed(location loc, const std::exception& ex, assertion_type t)
     {
         fail("_THROWS_AS( <exception thrown> )\ndue to unexpected exception with message:\n  "s + ex.what(), loc, t);
+    }
+    inline void handle_throws_with_failed(location loc, assertion_type t)
+    {
+        fail("_THROWS_WITH( <no exception thrown> )\nbecause no exception was thrown where one was expected\n", loc, t);
+    }
+    inline void handle_throws_with_failed(location loc, const std::string& expected, assertion_type t)
+    {
+        fail("_THROWS_WITH( <exception thrown> )\nwith expansion:\n  \"Unknown exception\" equals: \"" + expected + '\"', loc, t);
+    }
+    inline void handle_throws_with_failed(location loc, const std::exception& ex, const std::string& expected, assertion_type t)
+    {
+        fail("_THROWS_WITH( <exception thrown> )\nwith expansion:\n  \""s + ex.what() + "\" equals: \"" + expected + '\"', loc, t);
     }
 
     inline void handle_test_case_passed()
@@ -128,7 +146,7 @@ namespace internal {
         if (!value)
             handle_assertion_passed(loc);
         else
-            fail("_FALSE( true )", loc, t);
+            fail("_FALSE( true )\nwith expansion:\n  !true", loc, t); //save it as a "funny" easter egg and for compatibility with Catch2
     }
 
     inline void as_nothrow(std::function<void()>&& fun, internal::location loc, assertion_type t)
@@ -171,17 +189,33 @@ namespace internal {
             handle_throws_as_type_failed(loc, t);
         }
     }
+
+    inline void as_throws_with(std::function<void()>&& fun, const std::string& expected, internal::location loc, assertion_type t)
+    {
+        try {
+            fun();
+            handle_throws_with_failed(loc, t);
+        } catch (interupt_test_case&) {
+            throw;
+        } catch (std::exception& ex) {
+            if (ex.what() == expected) {
+                handle_assertion_passed(loc);
+                return;
+            }
+            handle_throws_with_failed(loc, ex, expected, t);
+        } catch (...) {
+            handle_throws_with_failed(loc, expected, t);
+        }
+    }
 } //namespace internal
 
 template <typename T>
-inline internal::test_token test_register(const char* name)
+inline internal::test_holder<T> test_register(const char* name)
 {
     using namespace internal;
-    auto obj = std::make_shared<T>();
     global_test_registry.current_test_entity = &global_test_registry.tests.emplace_back();
     global_test_registry.current_test_entity->name = name;
-    global_test_registry.current_test_entity->before_all = [obj] { /*TODO*/ };
-    obj->test();
+    global_test_registry.current_test_entity->before_all = [] { /*TODO*/ };
     return {};
 }
 
@@ -241,6 +275,14 @@ template <typename Ex>
 inline void require_throws_as(std::function<void()>&& fun, internal::location loc = internal::location::current())
 {
     internal::as_throws_as<Ex>(std::move(fun), loc, internal::at_require);
+}
+inline void check_throws_with(std::function<void()>&& fun, const std::string& expected, internal::location loc = internal::location::current())
+{
+    internal::as_throws_with(std::move(fun), expected, loc, internal::at_check);
+}
+inline void require_throws_with(std::function<void()>&& fun, const std::string& expected, internal::location loc = internal::location::current())
+{
+    internal::as_throws_with(std::move(fun), expected, loc, internal::at_require);
 }
 
 // ####################################################################### SESSION:
